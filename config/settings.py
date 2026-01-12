@@ -14,6 +14,17 @@ import os
 from pathlib import Path
 import environ
 
+# SECURITY: The secret key should come from the server environment
+SECRET_KEY = os.environ.get('SECRET_KEY', 'default-unsafe-key-for-dev')
+
+# SECURITY: Turn off debug in production!
+DEBUG = 'RENDER' not in os.environ
+
+# ALLOWED_HOSTS: Allow Render to host your app
+ALLOWED_HOSTS = []
+RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 # 1. Define BASE_DIR first
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -66,6 +77,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'core',
+    'academics',
+    'finance',
 ]
 
 # TELL DJANGO TO USE OUR CUSTOM USER
@@ -152,3 +165,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# config/settings.py
+
+# Add this Configuration Dictionary
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated', # Lock everything by default
+    ),
+}
+
+from datetime import timedelta
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60), # Token lasts 1 hour
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Login lasts 1 day
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
