@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuition ERP | Master Console</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #4f46e5; --dark: #0f172a; --light: #f8fafc; --white: #ffffff; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--light); display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--dark); color: #cbd5e1; display: flex; flex-direction: column; }
+        .brand { padding: 25px; font-size: 1.4rem; font-weight: bold; color: var(--white); border-bottom: 1px solid #1e293b; display: flex; gap: 10px; align-items: center;}
+        .menu { flex: 1; padding: 20px 10px; }
+        .menu-item { padding: 12px 15px; margin-bottom: 5px; cursor: pointer; display: flex; gap: 12px; border-radius: 6px; transition: 0.2s; color: #94a3b8; text-decoration: none; }
+        .menu-item:hover, .menu-item.active { background: #1e293b; color: var(--white); }
+        .menu-item.active { background: var(--primary); }
+        
+        /* Main Area */
+        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .topbar { background: var(--white); padding: 15px 30px; display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
+        .content { padding: 30px; overflow-y: auto; height: 100%; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; background: var(--white); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        th { background: #f8fafc; font-weight: 600; color: #64748b; font-size: 0.9rem; }
+        tr:hover { background: #f8fafc; }
+        
+        /* Cards */
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: var(--white); padding: 25px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card .val { font-size: 2rem; font-weight: bold; color: var(--dark); margin-top: 10px; }
+        
+        /* Util */
+        .hidden { display: none !important; }
+        .btn-sm { padding: 5px 10px; background: var(--primary); color: white; border-radius: 4px; font-size: 0.8rem; cursor: pointer; border: none; }
+        .tag { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .tag-blue { background: #dbeafe; color: #1e40af; }
+        .tag-green { background: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen" style="position:fixed; inset:0; background:var(--light); display:flex; justify-content:center; align-items:center; z-index:1000;">
+        <div style="background:white; padding:40px; border-radius:10px; width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.1);">
+            <h2 style="text-align:center; color:var(--dark);">ERP Login</h2>
+            <input type="text" id="user_in" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
+            <input type="password" id="pass_in" placeholder="Password" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ccc; border-radius:5px;">
+            <button onclick="login()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:5px; cursor:pointer;">Login</button>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden" style="display:flex; width:100%;">
+        <div class="sidebar">
+            <div class="brand"><i class="fa-solid fa-layer-group"></i> Tuition ERP</div>
+            <div class="menu" id="sidebar-menu">
+                </div>
+        </div>
+        <div class="main">
+            <div class="topbar">
+                <h3 id="page-title" style="margin:0;">Dashboard</h3>
+                <div>
+                    <span id="user-role" class="tag tag-blue" style="margin-right:10px;">Role</span>
+                    <button onclick="logout()" class="btn-sm" style="background:#ef4444;">Logout</button>
+                </div>
+            </div>
+            <div class="content" id="main-content">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const API = "http://127.0.0.1:8000/api";
+        
+        // Auto-Login
+        if(localStorage.getItem('token')) initApp();
+
+        async function login() {
+            const u = document.getElementById('user_in').value;
+            const p = document.getElementById('pass_in').value;
+            try {
+                const res = await fetch(`${API}/auth/login/`, {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})
+                });
+                if(res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.access);
+                    initApp();
+                } else alert("Login Failed");
+            } catch(e) { alert("Server Error"); }
+        }
+
+        async function initApp() {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            loadPage('dashboard'); // Default Page
+        }
+
+        // --- NAVIGATION CONTROLLER ---
+        async function loadPage(pageName) {
+            const token = localStorage.getItem('token');
+            const content = document.getElementById('main-content');
+            const title = document.getElementById('page-title');
+            
+            // 1. Highlight Menu
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            const activeBtn = document.getElementById(`btn-${pageName}`);
+            if(activeBtn) activeBtn.classList.add('active');
+
+            // 2. Load Content
+            if (pageName === 'dashboard') {
+                title.innerText = 'Dashboard Overview';
+                const res = await fetch(`${API}/dashboard/stats/`, { headers:{'Authorization':`Bearer ${token}`} });
+                const data = await res.json();
+                
+                // Build Sidebar dynamically based on role (First time only)
+                if(!document.getElementById('sidebar-menu').innerHTML.trim()) buildSidebar(data.role);
+
+                document.getElementById('user-role').innerText = data.role;
+                
+                // Render Dashboard
+                let html = `<div class="grid">`;
+                data.widgets.forEach(w => {
+                    html += `<div class="card" style="border-top:4px solid ${w.color}">
+                                <div style="color:#64748b; font-size:0.9rem;">${w.label}</div>
+                                <div class="val" style="color:${w.color}">${w.value}</div>
+                             </div>`;
+                });
+                html += `</div><h3>${data.table_title}</h3><table><thead><tr>`;
+                
+                if(data.table_data.length > 0) {
+                    Object.keys(data.table_data[0]).forEach(k => html += `<th>${k}</th>`);
+                    html += `</tr></thead><tbody>`;
+                    data.table_data.forEach(row => {
+                        html += `<tr>`;
+                        Object.values(row).forEach(v => html += `<td>${v}</td>`);
+                        html += `</tr>`;
+                    });
+                } else { html += `<td>No Data</td></tr>`; }
+                html += `</tbody></table>`;
+                content.innerHTML = html;
+            } 
+            
+            else if (pageName === 'institutes') {
+                title.innerText = 'All Institutes';
+                content.innerHTML = 'Loading...';
+                const res = await fetch(`${API}/institutes/`, { headers:{'Authorization':`Bearer ${token}`} });
+                const data = await res.json();
+                renderTable(data, ['id', 'name', 'code', 'is_active']);
+            }
+
+            else if (pageName === 'users') {
+                title.innerText = 'System Users';
+                content.innerHTML = 'Loading...';
+                const res = await fetch(`${API}/users/`, { headers:{'Authorization':`Bearer ${token}`} });
+                const data = await res.json();
+                renderTable(data, ['id', 'username', 'role', 'institute_name']);
+            }
+            
+            else if (pageName === 'students') {
+                title.innerText = 'Student Directory';
+                content.innerHTML = 'Loading...';
+                const res = await fetch(`${API}/academics/students/`, { headers:{'Authorization':`Bearer ${token}`} });
+                const data = await res.json();
+                // Flatten the nested data for display
+                const flatData = data.map(s => ({
+                    id: s.id,
+                    name: s.user.username,
+                    parent: s.parent_name,
+                    phone: s.parent_phone
+                }));
+                renderTable(flatData, ['id', 'name', 'parent', 'phone']);
+            }
+        }
+
+        function renderTable(data, columns) {
+            let html = `<table><thead><tr>`;
+            columns.forEach(col => html += `<th>${col.toUpperCase()}</th>`);
+            html += `</tr></thead><tbody>`;
+            data.forEach(row => {
+                html += `<tr>`;
+                columns.forEach(col => html += `<td>${row[col] || '-'}</td>`);
+                html += `</tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById('main-content').innerHTML = html;
+        }
+
+        function buildSidebar(role) {
+            const menu = document.getElementById('sidebar-menu');
+            let items = `<div class="menu-item active" id="btn-dashboard" onclick="loadPage('dashboard')"><i class="fa-solid fa-gauge"></i> Dashboard</div>`;
+            
+            if (role === 'SUPER_ADMIN') {
+                items += `
+                <div class="menu-item" id="btn-institutes" onclick="loadPage('institutes')"><i class="fa-solid fa-building"></i> Institutes</div>
+                <div class="menu-item" id="btn-users" onclick="loadPage('users')"><i class="fa-solid fa-users"></i> Users</div>
+                `;
+            }
+            else if (role === 'INSTITUTE_ADMIN') {
+                items += `
+                <div class="menu-item" id="btn-students" onclick="loadPage('students')"><i class="fa-solid fa-graduation-cap"></i> Students</div>
+                <div class="menu-item" id="btn-finance" onclick="loadPage('finance')"><i class="fa-solid fa-money-bill"></i> Finance</div>
+                `;
+            }
+            
+            menu.innerHTML = items;
+        }
+
+        function logout() { localStorage.removeItem('token'); location.reload(); }
+    </script>
+</body>
+</html>
