@@ -1,15 +1,6 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Environments
-venv/
-env/
 .env
-
-# Database (If you ever use sqlite locally)
+venv/
+__pycache__/
+*.pyc
 db.sqlite3
-
-# OS Files
 .DS_Store
