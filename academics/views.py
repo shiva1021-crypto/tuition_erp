@@ -3,6 +3,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
+from .models import Exam, StudentResult
+from .serializers import ExamSerializer, StudentResultSerializer
 
 from .models import (
     StudentProfile,
@@ -151,3 +153,28 @@ class AttendanceViewSet(viewsets.ModelViewSet):
             serializer.data,
             status=status.HTTP_201_CREATED
         )
+
+class ExamViewSet(viewsets.ModelViewSet):
+    serializer_class = ExamSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Exam.objects.filter(institute=self.request.user.institute)
+
+    def perform_create(self, serializer):
+        serializer.save(institute=self.request.user.institute)
+
+class StudentResultViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentResultSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        # If Student, only show MY results
+        if user.role == User.Roles.STUDENT:
+            return StudentResult.objects.filter(student__user=user)
+        # Otherwise (Admin/Teacher), show all institute results
+        return StudentResult.objects.filter(institute=user.institute)
+
+    def perform_create(self, serializer):
+        serializer.save(institute=self.request.user.institute)

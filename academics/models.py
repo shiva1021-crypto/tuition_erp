@@ -91,3 +91,26 @@ class AttendanceRecord(TenantAwareModel):
 
     def __str__(self):
         return f"{self.student} - {self.date} - {self.status}"
+
+# academics/models.py
+
+class Exam(TenantAwareModel):
+    name = models.CharField(max_length=100) # e.g., "Internal Assessment 1"
+    batch = models.ForeignKey(Batch, on_delete=models.CASCADE)
+    date = models.DateField()
+    
+    def __str__(self):
+        return f"{self.name} - {self.batch.name}"
+
+class StudentResult(TenantAwareModel):
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    marks_obtained = models.DecimalField(max_digits=5, decimal_places=2)
+    max_marks = models.DecimalField(max_digits=5, decimal_places=2, default=100.00)
+    
+    class Meta:
+        unique_together = ('student', 'exam', 'subject')
+
+    def __str__(self):
+        return f"{self.student} - {self.subject}: {self.marks_obtained}"

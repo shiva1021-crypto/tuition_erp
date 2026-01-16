@@ -4,6 +4,7 @@ from django.db import transaction
 from core.models import User
 from .models import StudentProfile, Batch, Subject
 from .models import AttendanceRecord
+from .models import Exam, StudentResult
 
 
 # ------------------------------------------------------------------
@@ -102,3 +103,18 @@ class BatchSerializer(serializers.ModelSerializer):
             'subjects_display',  # read full objects
             'teachers',
         ]
+
+class ExamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exam
+        fields = '__all__'
+        read_only_fields = ['institute']
+
+class StudentResultSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source='subject.name', read_only=True)
+    exam_name = serializers.CharField(source='exam.name', read_only=True)
+
+    class Meta:
+        model = StudentResult
+        fields = ['id', 'student', 'exam', 'exam_name', 'subject', 'subject_name', 'marks_obtained', 'max_marks']
+        read_only_fields = ['institute']

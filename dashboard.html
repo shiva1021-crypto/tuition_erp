@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tuition ERP | Master Console</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root { --primary: #4f46e5; --dark: #0f172a; --light: #f8fafc; --white: #ffffff; }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--light); display: flex; height: 100vh; overflow: hidden; }
@@ -46,8 +46,8 @@
     <div id="login-screen" style="position:fixed; inset:0; background:var(--light); display:flex; justify-content:center; align-items:center; z-index:1000;">
         <div style="background:white; padding:40px; border-radius:10px; width:320px; box-shadow:0 10px 30px rgba(0,0,0,0.1);">
             <h2 style="text-align:center; color:var(--dark);">ERP Login</h2>
-            <input type="text" id="user_in" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;">
-            <input type="password" id="pass_in" placeholder="Password" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ccc; border-radius:5px;">
+            <input type="text" id="user_in" placeholder="Username" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:5px;" />
+            <input type="password" id="pass_in" placeholder="Password" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ccc; border-radius:5px;" />
             <button onclick="login()" style="width:100%; padding:12px; background:var(--primary); color:white; border:none; border-radius:5px; cursor:pointer;">Login</button>
         </div>
     </div>
@@ -56,7 +56,8 @@
         <div class="sidebar">
             <div class="brand"><i class="fa-solid fa-layer-group"></i> Tuition ERP</div>
             <div class="menu" id="sidebar-menu">
-                </div>
+                <!-- Sidebar menu dynamically built here -->
+            </div>
         </div>
         <div class="main">
             <div class="topbar">
@@ -67,7 +68,8 @@
                 </div>
             </div>
             <div class="content" id="main-content">
-                </div>
+                <!-- Main content loaded here -->
+            </div>
         </div>
     </div>
 
@@ -109,69 +111,105 @@
             const activeBtn = document.getElementById(`btn-${pageName}`);
             if(activeBtn) activeBtn.classList.add('active');
 
-            // 2. Load Content
-            if (pageName === 'dashboard') {
-                title.innerText = 'Dashboard Overview';
-                const res = await fetch(`${API}/dashboard/stats/`, { headers:{'Authorization':`Bearer ${token}`} });
-                const data = await res.json();
-                
-                // Build Sidebar dynamically based on role (First time only)
-                if(!document.getElementById('sidebar-menu').innerHTML.trim()) buildSidebar(data.role);
+            try {
+                if (pageName === 'dashboard') {
+                    title.innerText = 'Dashboard Overview';
+                    const res = await fetch(`${API}/dashboard/stats/`, { headers:{'Authorization':`Bearer ${token}`} });
+                    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+                    
+                    const data = await res.json();
+                    
+                    // Build Sidebar dynamically (First time only)
+                    if(!document.getElementById('sidebar-menu').innerHTML.trim()) buildSidebar(data.role);
 
-                document.getElementById('user-role').innerText = data.role;
-                
-                // Render Dashboard
-                let html = `<div class="grid">`;
-                data.widgets.forEach(w => {
-                    html += `<div class="card" style="border-top:4px solid ${w.color}">
-                                <div style="color:#64748b; font-size:0.9rem;">${w.label}</div>
-                                <div class="val" style="color:${w.color}">${w.value}</div>
-                             </div>`;
-                });
-                html += `</div><h3>${data.table_title}</h3><table><thead><tr>`;
-                
-                if(data.table_data.length > 0) {
-                    Object.keys(data.table_data[0]).forEach(k => html += `<th>${k}</th>`);
-                    html += `</tr></thead><tbody>`;
-                    data.table_data.forEach(row => {
-                        html += `<tr>`;
-                        Object.values(row).forEach(v => html += `<td>${v}</td>`);
-                        html += `</tr>`;
+                    document.getElementById('user-role').innerText = data.role;
+                    
+                    // Render Dashboard widgets & table
+                    let html = `<div class="grid">`;
+                    data.widgets.forEach(w => {
+                        html += `<div class="card" style="border-top:4px solid ${w.color}">
+                                    <div style="color:#64748b; font-size:0.9rem;">${w.label}</div>
+                                    <div class="val" style="color:${w.color}">${w.value}</div>
+                                 </div>`;
                     });
-                } else { html += `<td>No Data</td></tr>`; }
-                html += `</tbody></table>`;
-                content.innerHTML = html;
-            } 
-            
-            else if (pageName === 'institutes') {
-                title.innerText = 'All Institutes';
-                content.innerHTML = 'Loading...';
-                const res = await fetch(`${API}/institutes/`, { headers:{'Authorization':`Bearer ${token}`} });
-                const data = await res.json();
-                renderTable(data, ['id', 'name', 'code', 'is_active']);
-            }
+                    
+                    html += `</div><h3>${data.table_title}</h3><table><thead><tr>`;
+                    if(data.table_data.length > 0) {
+                        Object.keys(data.table_data[0]).forEach(k => html += `<th>${k}</th>`);
+                        html += `</tr></thead><tbody>`;
+                        data.table_data.forEach(row => {
+                            html += `<tr>`;
+                            Object.values(row).forEach(v => html += `<td>${v}</td>`);
+                            html += `</tr>`;
+                        });
+                    } else { html += `<td>No Data</td></tr>`; }
+                    html += `</tbody></table>`;
+                    content.innerHTML = html;
+                } 
+                else if (pageName === 'institutes') {
+                    title.innerText = 'All Institutes';
+                    content.innerHTML = 'Loading...';
+                    
+                    const res = await fetch(`${API}/institutes/`, { headers:{'Authorization':`Bearer ${token}`} });
+                    if (!res.ok) {
+                        const errText = await res.text();
+                        throw new Error(`Server ${res.status}: ${errText}`);
+                    }
 
-            else if (pageName === 'users') {
-                title.innerText = 'System Users';
-                content.innerHTML = 'Loading...';
-                const res = await fetch(`${API}/users/`, { headers:{'Authorization':`Bearer ${token}`} });
-                const data = await res.json();
-                renderTable(data, ['id', 'username', 'role', 'institute_name']);
-            }
-            
-            else if (pageName === 'students') {
-                title.innerText = 'Student Directory';
-                content.innerHTML = 'Loading...';
-                const res = await fetch(`${API}/academics/students/`, { headers:{'Authorization':`Bearer ${token}`} });
-                const data = await res.json();
-                // Flatten the nested data for display
-                const flatData = data.map(s => ({
-                    id: s.id,
-                    name: s.user.username,
-                    parent: s.parent_name,
-                    phone: s.parent_phone
-                }));
-                renderTable(flatData, ['id', 'name', 'parent', 'phone']);
+                    const data = await res.json();
+                    renderTable(data, ['id', 'name', 'code', 'is_active', 'created_at']);
+                }
+                else if (pageName === 'users') {
+                    title.innerText = 'System Users';
+                    content.innerHTML = 'Loading...';
+                    
+                    const res = await fetch(`${API}/users/`, { headers:{'Authorization':`Bearer ${token}`} });
+                    if (!res.ok) throw new Error(`Server ${res.status}`);
+                    
+                    const data = await res.json();
+                    renderTable(data, ['id', 'username', 'role', 'institute_name']);
+                }
+                else if (pageName === 'students') {
+                    title.innerText = 'Student Directory';
+                    content.innerHTML = 'Loading...';
+                    
+                    const res = await fetch(`${API}/academics/students/`, { headers:{'Authorization':`Bearer ${token}`} });
+                    if (!res.ok) throw new Error(`Server ${res.status}`);
+                    
+                    const data = await res.json();
+                    const flatData = data.map(s => ({
+                        id: s.id,
+                        name: s.user.username,
+                        parent: s.parent_name,
+                        phone: s.parent_phone
+                    }));
+                    renderTable(flatData, ['id', 'name', 'parent', 'phone']);
+                }
+                else if (pageName === 'results') {
+                    title.innerText = 'My Academic Performance';
+                    content.innerHTML = 'Loading marks...';
+
+                    const res = await fetch(`${API}/academics/results/`, { headers:{'Authorization':`Bearer ${token}`} });
+                    if (!res.ok) throw new Error("Failed to fetch results");
+
+                    const data = await res.json();
+
+                    // Render Table with specific columns
+                    renderTable(data, ['exam_name', 'subject_name', 'marks_obtained', 'max_marks']);
+                }
+                else {
+                    content.innerHTML = `<p>Page not found</p>`;
+                }
+
+            } catch (error) {
+                console.error(error);
+                content.innerHTML = `
+                    <div style="background:#fee2e2; color:#b91c1c; padding:20px; border-radius:8px; border:1px solid #fca5a5;">
+                        <h3><i class="fa-solid fa-triangle-exclamation"></i> Error Loading Data</h3>
+                        <p>${error.message}</p>
+                        <button onclick="location.reload()" class="btn-sm" style="margin-top:10px; background:#b91c1c;">Reload Page</button>
+                    </div>
+                `;
             }
         }
 
@@ -181,7 +219,7 @@
             html += `</tr></thead><tbody>`;
             data.forEach(row => {
                 html += `<tr>`;
-                columns.forEach(col => html += `<td>${row[col] || '-'}</td>`);
+                columns.forEach(col => html += `<td>${row[col] !== undefined ? row[col] : '-'}</td>`);
                 html += `</tr>`;
             });
             html += `</tbody></table>`;
@@ -189,26 +227,74 @@
         }
 
         function buildSidebar(role) {
+            console.log("DEBUG: Role received ->", role); // Check console (F12) if this prints!
+            
+            // 1. Normalize the role (Force Uppercase to avoid mismatches)
+            // Example: "Super_Admin" becomes "SUPER_ADMIN"
+            const safeRole = role ? role.toUpperCase() : "GUEST";
+            
             const menu = document.getElementById('sidebar-menu');
-            let items = `<div class="menu-item active" id="btn-dashboard" onclick="loadPage('dashboard')"><i class="fa-solid fa-gauge"></i> Dashboard</div>`;
             
-            if (role === 'SUPER_ADMIN') {
+            // 2. ALWAYS add the Dashboard button for everyone
+            let items = `
+                <div class="menu-item" id="btn-dashboard" onclick="loadPage('dashboard')">
+                    <i class="fa-solid fa-gauge"></i> Dashboard
+                </div>
+            `;
+            
+            // 3. Add buttons based on Role
+            if (safeRole === 'SUPER_ADMIN') {
                 items += `
-                <div class="menu-item" id="btn-institutes" onclick="loadPage('institutes')"><i class="fa-solid fa-building"></i> Institutes</div>
-                <div class="menu-item" id="btn-users" onclick="loadPage('users')"><i class="fa-solid fa-users"></i> Users</div>
+                    <div class="menu-item" id="btn-institutes" onclick="loadPage('institutes')">
+                        <i class="fa-solid fa-building"></i> Institutes
+                    </div>
+                    <div class="menu-item" id="btn-users" onclick="loadPage('users')">
+                        <i class="fa-solid fa-users"></i> Users
+                    </div>
+                `;
+            } 
+            else if (safeRole === 'INSTITUTE_ADMIN') {
+                items += `
+                    <div class="menu-item" id="btn-students" onclick="loadPage('students')">
+                        <i class="fa-solid fa-graduation-cap"></i> Students
+                    </div>
+                    <div class="menu-item" id="btn-finance" onclick="loadPage('finance')">
+                        <i class="fa-solid fa-money-bill"></i> Finance
+                    </div>
                 `;
             }
-            else if (role === 'INSTITUTE_ADMIN') {
+            else if (safeRole === 'STUDENT') {
                 items += `
-                <div class="menu-item" id="btn-students" onclick="loadPage('students')"><i class="fa-solid fa-graduation-cap"></i> Students</div>
-                <div class="menu-item" id="btn-finance" onclick="loadPage('finance')"><i class="fa-solid fa-money-bill"></i> Finance</div>
+                    <div class="menu-item" id="btn-results" onclick="loadPage('results')">
+                        <i class="fa-solid fa-square-poll-vertical"></i> Exam Results
+                    </div>
+                    <div class="menu-item" id="btn-subjects" onclick="loadPage('subjects')">
+                        <i class="fa-solid fa-book"></i> My Subjects
+                    </div>
                 `;
             }
-            
+            else if (safeRole === 'TEACHER') {
+                items += `
+                    <div class="menu-item" id="btn-attendance" onclick="loadPage('attendance')">
+                        <i class="fa-solid fa-clipboard-user"></i> Mark Attendance
+                    </div>
+                `;
+            }
+
+            // 4. Inject the HTML
             menu.innerHTML = items;
+            
+            // 5. Highlight the current page (Visual Fix)
+            const activePage = document.querySelector('.menu-item.active');
+            if(!activePage) {
+                document.getElementById('btn-dashboard').classList.add('active');
+            }
         }
 
-        function logout() { localStorage.removeItem('token'); location.reload(); }
+        function logout() { 
+            localStorage.removeItem('token'); 
+            location.reload(); 
+        }
     </script>
 </body>
 </html>
