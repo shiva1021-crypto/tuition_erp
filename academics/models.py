@@ -1,9 +1,12 @@
 # academics/models.py
 from django.db import models
-from core.models import TenantAwareModel, User  # Import your base class
+from core.models import User
 from django.utils.translation import gettext_lazy as _
 
-class Subject(TenantAwareModel):
+# NOTE: We switched from TenantAwareModel to models.Model
+# The 'schema' (folder) now handles the isolation, not the 'institute_id' column.
+
+class Subject(models.Model):
     """
     Example: Mathematics, Physics, English.
     """
@@ -15,7 +18,7 @@ class Subject(TenantAwareModel):
         return f"{self.name} ({self.code})"
 
 
-class Batch(TenantAwareModel):
+class Batch(models.Model):
     """
     A specific class group.
     Example: 'Class 10 - Morning Batch - 2026'
@@ -23,10 +26,10 @@ class Batch(TenantAwareModel):
     name = models.CharField(max_length=100)
     year = models.IntegerField(default=2026)
     
-    # Many-to-Many: A batch has many subjects, and a subject can be in many batches.
+    # Many-to-Many: A batch has many subjects
     subjects = models.ManyToManyField(Subject, related_name='batches')
     
-    # Many-to-Many: Multiple teachers can teach a single batch.
+    # Many-to-Many: Multiple teachers can teach a single batch
     teachers = models.ManyToManyField(
         User,
         limit_choices_to={'role': User.Roles.TEACHER},
@@ -38,7 +41,7 @@ class Batch(TenantAwareModel):
         return f"{self.name} ({self.year})"
 
 
-class StudentProfile(TenantAwareModel):
+class StudentProfile(models.Model):
     """
     The academic profile of a student.
     Linked 1-to-1 with the User Login.
@@ -48,18 +51,17 @@ class StudentProfile(TenantAwareModel):
     # Personal Info
     date_of_birth = models.DateField(null=True, blank=True)
     address = models.TextField(blank=True)
+    whatsapp_number = models.CharField(max_length=15, blank=True, null=True)
     
     # Parent Info
     parent_name = models.CharField(max_length=150)
     parent_phone = models.CharField(max_length=15)
     
     # Academic Link
-    # A student belongs to ONE batch (usually).
     batch = models.ForeignKey(Batch, on_delete=models.SET_NULL, null=True, related_name='students')
-    
     enrollment_number = models.CharField(max_length=50, unique=True, help_text="Institute specific ID")
 
-    # NEW: Link to Parent Users (Many-to-Many)
+    # Link to Parent Users
     parents = models.ManyToManyField(
         User,
         related_name='children',
@@ -71,7 +73,7 @@ class StudentProfile(TenantAwareModel):
         return f"{self.user.username} - {self.enrollment_number}"
 
 
-class AttendanceRecord(TenantAwareModel):
+class AttendanceRecord(models.Model):
     class Status(models.TextChoices):
         PRESENT = 'PRESENT', _('Present')
         ABSENT = 'ABSENT', _('Absent')
@@ -85,24 +87,39 @@ class AttendanceRecord(TenantAwareModel):
     remarks = models.CharField(max_length=255, blank=True)
 
     class Meta:
-        # Prevent marking attendance twice for the same student on the same day for the same batch
         unique_together = ('student', 'batch', 'date')
         ordering = ['-date']
 
     def __str__(self):
         return f"{self.student} - {self.date} - {self.status}"
 
-# academics/models.py
 
-class Exam(TenantAwareModel):
-    name = models.CharField(max_length=100) # e.g., "Internal Assessment 1"
+class Exam(models.Model):
+    name = models.CharField(max_length=100)
     batch = models.ForeignKey(Batch, on_delete=models.CASCADE)
     date = models.DateField()
     
     def __str__(self):
         return f"{self.name} - {self.batch.name}"
 
-class StudentResult(TenantAwareModel):
+
+class StudyMaterial(models.Model):
+    """
+    Notes, Assignments, and PDFs shared by teachers.
+    """
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to='study_materials/')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Link to a specific batch
+    batch = models.ForeignKey(Batch, on_delete=models.CASCADE, related_name='materials')
+
+    def __str__(self):
+        return self.title
+
+
+class StudentResult(models.Model):
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)

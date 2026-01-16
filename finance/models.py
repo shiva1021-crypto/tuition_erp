@@ -1,9 +1,9 @@
 # finance/models.py
 from django.db import models
-from core.models import TenantAwareModel
 from academics.models import StudentProfile, Batch
+# REMOVED: from core.models import TenantAwareModel
 
-class FeeStructure(TenantAwareModel):
+class FeeStructure(models.Model): # <--- Changed to models.Model
     """
     Master Table: Defines types of fees.
     Example: 'Class 10 Tuition Fee' = 5000 (Monthly)
@@ -23,7 +23,7 @@ class FeeStructure(TenantAwareModel):
     def __str__(self):
         return f"{self.name} - {self.amount}"
 
-class StudentFeeAllocation(TenantAwareModel):
+class StudentFeeAllocation(models.Model): # <--- Changed to models.Model
     """
     Links a Student to a Fee Structure.
     "John is assigned the Class 10 Tuition Fee".
@@ -38,7 +38,7 @@ class StudentFeeAllocation(TenantAwareModel):
     def __str__(self):
         return f"{self.student} -> {self.fee_structure}"
 
-class FeeInstallment(TenantAwareModel):
+class FeeInstallment(models.Model): # <--- Changed to models.Model
     """
     The Actual Bill (Invoice).
     Generated monthly (via a script/task) or manually.
@@ -68,7 +68,7 @@ class FeeInstallment(TenantAwareModel):
             self.status = self.Status.PENDING
         self.save()
 
-class FeePayment(TenantAwareModel):
+class FeePayment(models.Model): # <--- Changed to models.Model
     """
     The Receipt.
     Tracks actual money coming in.

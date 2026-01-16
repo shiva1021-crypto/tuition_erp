@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Service 1: The Database
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=tuition_erp_db
+      - POSTGRES_USER=erp_admin
+      - POSTGRES_PASSWORD=secure_password_123
+
+  # Service 2: The Web App (Your Code)
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://erp_admin:secure_password_123@db:5432/tuition_erp_db
+      - SECRET_KEY=django-insecure-change-me-for-prod
+      - DEBUG=True
+
+volumes:
+  postgres_data:

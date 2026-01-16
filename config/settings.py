@@ -28,30 +28,35 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # ------------------------------------------------------------------------------
 # APPLICATION DEFINITION
 # ------------------------------------------------------------------------------
-INSTALLED_APPS = [
+SHARED_APPS = (
+    'django_tenants',  # Must be first
+    'tenants',         # Your new app
+    'core',            # Users are global (SaaS-wide login)
+    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party
     'rest_framework',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',  # <--- Added for JWT
     'corsheaders',
+)
 
-    # Local apps
-    'core',
+TENANT_APPS = (
+    # These apps are strictly isolated per Tuition Center
     'academics',
     'finance',
-]
+)
+
+# Django-tenants merges them for internal use
+INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
 # Custom User Model
 AUTH_USER_MODEL = 'core.User'
@@ -60,6 +65,7 @@ AUTH_USER_MODEL = 'core.User'
 # MIDDLEWARE
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
+    'django_tenants.middleware.main.TenantMainMiddleware',  # <--- MUST BE FIRST
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -73,12 +79,13 @@ MIDDLEWARE = [
 # ------------------------------------------------------------------------------
 # URLS & WSGI
 # ------------------------------------------------------------------------------
+PUBLIC_SCHEMA_URLCONF = 'config.urls_public'
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -93,11 +100,23 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # ------------------------------------------------------------------------------
-# DATABASE (Supabase / PostgreSQL)
+# DATABASE (PostgreSQL + Tenants)
 # ------------------------------------------------------------------------------
 DATABASES = {
-    'default': env.db(),  # Reads DATABASE_URL from .env
+    'default': {
+        'ENGINE': 'django_tenants.postgresql_backend',
+        'NAME': 'tuition_erp_db',
+        'USER': 'erp_admin',
+        'PASSWORD': 'secure_password_123',
+        'HOST': 'db',
+        'PORT': '5432',
+    }
 }
+DATABASE_ROUTERS = (
+    'django_tenants.routers.TenantSyncRouter',
+)
+TENANT_MODEL = "tenants.Client" 
+TENANT_DOMAIN_MODEL = "tenants.Domain"
 
 # ------------------------------------------------------------------------------
 # PASSWORD VALIDATION
@@ -121,17 +140,18 @@ AUTH_PASSWORD_VALIDATORS = [
 # INTERNATIONALIZATION
 # ------------------------------------------------------------------------------
 LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'Asia/Kolkata'  # <--- Corrected for India
-
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
 # ------------------------------------------------------------------------------
-# STATIC FILES
+# STATIC & MEDIA FILES
 # ------------------------------------------------------------------------------
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # ------------------------------------------------------------------------------
 # DEFAULT PRIMARY KEY
@@ -158,8 +178,11 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# ------------------------------------------------------------------------------
-# CORS SETTINGS
-# For development, we allow ALL domains.
-# In production, restrict to specific frontend domains like 'https://your-frontend.com'
 CORS_ALLOW_ALL_ORIGINS = True
+
+# ------------------------------------------------------------------------------
+# RAZORPAY SETTINGS (Phase 9)
+# ------------------------------------------------------------------------------
+# Get these from https://dashboard.razorpay.com/app/keys
+RAZORPAY_KEY_ID = env('RAZORPAY_KEY_ID', default='rzp_test_YOUR_KEY_HERE')
+RAZORPAY_KEY_SECRET = env('RAZORPAY_KEY_SECRET', default='YOUR_SECRET_HERE')
