@@ -228,15 +228,20 @@
                 // --- MY FEES (STUDENT PAYMENT) ---
                 else if (pageName === 'my_fees') {
                     title.innerText = 'My Fees';
-                    const res = await apiCall('/finance/installments/'); // Requires backend to filter by user
+                    const res = await apiCall('/finance/installments/');
                     const data = await res.json();
 
                     let html = `<div class="grid">`;
-                    if(data.length === 0) html += `<p>No fee records found.</p>`;
+                    if (data.length === 0) html += `<p>No fee records found.</p>`;
+
                     data.forEach(inst => {
-                        let action = `<span class="tag tag-green">PAID</span>`;
-                        if(inst.status !== 'PAID') {
-                            // "Pay Now" Button triggers Razorpay
+                        let action = '';
+                        if (inst.status === 'PAID') {
+                            // NOW: We pass 'inst.id' (The Bill ID) directly
+                            action = `<button class="btn" style="background:#0f172a" onclick="downloadReceipt(${inst.id})">
+                                        <i class="fa-solid fa-file-pdf"></i> Receipt
+                                      </button>`;
+                        } else {
                             action = `<button class="btn" onclick="startPayment(${inst.id})">Pay Now</button>`;
                         }
 
@@ -249,9 +254,11 @@
                             </div>
                         `;
                     });
+
                     html += `</div>`;
                     content.innerHTML = html;
                 }
+
 
                 // --- STUDENTS MANAGEMENT ---
                 else if (pageName === 'students') {
@@ -362,12 +369,38 @@
         // 2. Razorpay Payment
         async function startPayment(installmentId) {
             try {
-                // Step A: Create Order
+                // Step A: Initiate (Get Order ID)
                 const res = await apiCall('/finance/pay/initiate/', 'POST', { installment_id: installmentId });
                 const orderData = await res.json();
+                
                 if(!res.ok) throw new Error(orderData.error || "Order Creation Failed");
 
-                // Step B: Open Popup
+                // --- BYPASS LOGIC START ---
+                // If the backend sent a fake "order_test_..." ID, we skip the popup!
+                if (orderData.order_id.startsWith("order_test_")) {
+                    console.log("Test Mode Detected: Skipping Razorpay Popup");
+                    
+                    // Simulate a successful verification call immediately
+                    const verifyRes = await apiCall('/finance/pay/verify/', 'POST', {
+                        razorpay_payment_id: "pay_test_" + Math.floor(Math.random() * 100000), // Random fake ID
+                        razorpay_order_id: orderData.order_id,
+                        razorpay_signature: "SKIP_VERIFICATION", // Secret code we added to backend
+                        installment_id: orderData.installment_id,
+                        amount: orderData.amount
+                    });
+                    
+                    const result = await verifyRes.json();
+                    if(result.status === 'success') {
+                        alert("Test Payment Successful!");
+                        loadPage('my_fees'); // Refresh page
+                    } else {
+                        alert("Verification Failed: " + JSON.stringify(result));
+                    }
+                    return; // Stop here, don't open Razorpay
+                }
+                // --- BYPASS LOGIC END ---
+
+                // Standard Razorpay Flow (For Real Keys)
                 var options = {
                     "key": orderData.key_id, 
                     "amount": orderData.amount, 
@@ -376,7 +409,6 @@
                     "description": "Fee Payment",
                     "order_id": orderData.order_id, 
                     "handler": async function (response){
-                        // Step C: Verify
                         const verifyRes = await apiCall('/finance/pay/verify/', 'POST', {
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_order_id: response.razorpay_order_id,
@@ -399,6 +431,27 @@
             } catch (e) { alert(e.message); }
         }
 
+        async function downloadReceipt(installmentId) {
+            try {
+                const token = localStorage.getItem('token');
+                // Use the NEW URL structure
+                const res = await fetch(`${API}/finance/installment/${installmentId}/receipt/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if(!res.ok) throw new Error("Receipt not found");
+                
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Receipt_${installmentId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+            } catch(e) { alert(e.message); }
+        }
         // 3. Student Admission
         async function refreshStudentList() {
             try {
